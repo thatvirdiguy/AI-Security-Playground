@@ -1,0 +1,117 @@
+INTERNAL SECURITY BEST PRACTICES
+Version 1.0 | Effective Date: 2026-01-01
+Classification: Internal Use Only
+
+==================================================================================================================================================================================
+SECTION 1 — AUTHENTICATION & ACCESS CONTROL
+==================================================================================================================================================================================
+
+BP-AUTH-001: Multi-Factor Authentication (MFA)
+All internal-facing systems and administrative portals MUST enforce MFA for every user login. 
+Acceptable second factors: TOTP apps, hardware security keys (FIDO2/WebAuthn). 
+SMS-based OTP is discouraged due to SIM-swap risk.
+
+BP-AUTH-002: API Key Lifecycle Management
+API keys MUST have a defined expiry (maximum 90 days for privileged keys, 365 days for standard integrations). 
+Automated rotation pipelines MUST be in place. 
+All keys must be stored in a secrets manager (AWS Secrets Manager or HashiCorp Vault); never in source code or environment variable files checked into version control.
+
+BP-AUTH-003: Principle of Least Privilege
+Every service account, IAM role, and user account MUST be granted only the minimum permissions necessary to perform its function. 
+Access rights MUST be reviewed quarterly. 
+Orphaned accounts MUST be disabled within 48 hours of an employee offboarding.
+
+BP-AUTH-004: OAuth 2.0 & Token Validation
+When using OAuth 2.0, tokens MUST be validated for signature, expiry, issuer, and audience on every request. 
+Short-lived access tokens (max 15 minutes) with refresh token rotation are REQUIRED. 
+Tokens MUST NOT be logged in plaintext.
+
+==================================================================================================================================================================================
+SECTION 2 — DATA PROTECTION
+==================================================================================================================================================================================
+
+BP-DATA-001: Encryption in Transit
+All data in transit MUST use TLS 1.2 or higher. 
+TLS 1.0 and 1.1 MUST be disabled. 
+Certificate pinning is RECOMMENDED for mobile clients. 
+Internal service-to-service calls within private VPCs MUST also use TLS.
+
+BP-DATA-002: Encryption at Rest
+All sensitive data at rest (PII, financial records, credentials) MUST be encrypted using AES-256 or stronger. 
+Encryption keys MUST be stored separately from the data they protect, managed via a KMS.
+
+BP-DATA-003: Sensitive Data Minimisation
+Systems MUST NOT collect or retain sensitive data beyond operational necessity. 
+PAN data, CVV codes, and raw biometric data MUST never be stored. 
+Tokenisation and/or masking MUST be applied before persistence.
+
+BP-DATA-004: Log Sanitisation
+Application and access logs MUST be reviewed to ensure they do not contain PAN, CVV, passwords, tokens, or other sensitive data. 
+Automated log scanning MUST run at least daily in CI/CD and production.
+
+==================================================================================================================================================================================
+SECTION 3 — NETWORK SECURITY
+==================================================================================================================================================================================
+
+BP-NET-001: Network Segmentation
+Production, staging, and development environments MUST be in separate VPCs or accounts. 
+Internal admin interfaces MUST NOT be exposed to the public internet; VPN or Zero Trust Network Access (ZTNA) MUST be used.
+
+BP-NET-002: Web Application Firewall (WAF)
+All internet-facing HTTP/HTTPS endpoints MUST be protected by a WAF configured to block OWASP Top 10 attacks. 
+WAF rules MUST be reviewed and updated monthly. 
+Custom rules MUST cover rate limiting and geo-blocking where required.
+
+BP-NET-003: DDoS Protection
+All public-facing services MUST be covered by DDoS mitigation (e.g., AWS Shield Advanced, Cloudflare). 
+Traffic baselines MUST be established and anomaly-based alerting configured to trigger within 5 minutes of deviation.
+
+BP-NET-004: Outbound Request Controls
+Services that make outbound HTTP requests (e.g., webhook delivery) MUST validate destination URLs against an allowlist or SSRF protection layer. 
+Private IP ranges (RFC 1918) and cloud metadata endpoints (169.254.169.254) MUST be blocked at both application and network levels.
+
+==================================================================================================================================================================================
+SECTION 4 — APPLICATION SECURITY
+==================================================================================================================================================================================
+
+BP-APP-001: Input Validation & Injection Prevention
+All external inputs MUST be validated (type, length, format, encoding) before use. 
+Parameterised queries or ORM abstractions MUST be used for all database interactions. 
+Raw string concatenation in SQL MUST trigger a blocking code-review finding.
+
+BP-APP-002: Dependency & Supply Chain Security
+All third-party dependencies MUST be scanned for known CVEs on every build (Dependabot or Snyk). 
+Dependencies with CRITICAL or HIGH severity CVEs MUST be remediated within 7 days. 
+A software bill of materials (SBOM) MUST be maintained per service.
+
+BP-APP-003: Secrets Management
+Secrets (API keys, DB passwords, TLS private keys) MUST be injected at runtime from a secrets manager. 
+They MUST NOT appear in Docker images, source code, CI/CD logs, or environment files committed to repos.
+
+BP-APP-004: Secure Webhook Implementation
+Outbound webhooks MUST include a cryptographic signature (HMAC-SHA256 or stronger) in a custom header so receivers can verify authenticity. 
+Webhook delivery MUST implement retry logic with exponential backoff and dead-letter queuing. 
+Merchant-registered webhook URLs MUST be validated against SSRF controls (see BP-NET-004).
+
+==================================================================================================================================================================================
+SECTION 5 — INCIDENT RESPONSE & MONITORING
+==================================================================================================================================================================================
+
+BP-MON-001: Security Event Logging
+All authentication events (success and failure), privilege escalations, data access by admin users, and configuration changes MUST be logged to a tamper-evident, centralised SIEM. 
+Log retention MUST be a minimum of 12 months.
+
+BP-MON-002: Intrusion Detection
+IDS/IPS MUST be deployed in production. 
+Alerts MUST be triaged within 30 minutes during business hours and 60 minutes off-hours. 
+GuardDuty findings of HIGH or CRITICAL severity MUST page the on-call security engineer.
+
+BP-MON-003: Vulnerability Management
+All production systems MUST be scanned for vulnerabilities weekly. 
+Critical vulnerabilities MUST be patched within 24 hours; High within 7 days; Medium within 30 days. 
+Patch compliance MUST be reported monthly to the CISO.
+
+BP-MON-004: Third-Party Risk Management
+Third-party integrations handling sensitive data MUST undergo an annual security assessment. 
+Evidence of compliance certifications (SOC 2, PCI DSS, ISO 27001) MUST be obtained and stored. 
+Contracts MUST include security SLAs and breach notification obligations within 24 hours.
